@@ -31,17 +31,6 @@ class cpuidle_plugin
 		return CPU_COUNT(&cpumask) == 1;
 	}
 
-	static int get_current_cpu()
-    	{
-		int res = sched_getcpu();
-
-		if (res < 0)
-		{
-			scorep::exception::raise("Failed to get current cpu for current thread");
-		}
-
-		return res;
-	}
 	void setMeasure(uint32_t cpu, int flag){
 		FILE *ft;
 		char name[55];
