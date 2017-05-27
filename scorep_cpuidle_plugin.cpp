@@ -1,7 +1,4 @@
-
 #include <scorep/plugin/plugin.hpp>
-
-
 #include <iostream>
 #include <string>
 #include <vector>
@@ -11,26 +8,16 @@
 #include <string>
 #include <regex>
 
-
-
-
-
-
 using namespace scorep::plugin::policy;
 
 using scorep::plugin::logging;
 
 class cpuidle_plugin
   : public scorep::plugin::base<cpuidle_plugin, async, post_mortem, scorep_clock, once>{
-	
-	static bool is_pinned()
-	{
-		cpu_set_t cpumask;
-		sched_getaffinity(0, sizeof(cpu_set_t), &cpumask);
-
-		return CPU_COUNT(&cpumask) == 1;
-	}
-
+private:
+//	set measure flag of cpuidle sys interface for specific cpu
+//	@param cpu	cpu id (0,1,2...)
+//	@param flag	either 1 to initiate cpuidle measurements in Linux kernel, or 0 to stop them
 	void setMeasure(uint32_t cpu, int flag){
 		FILE *ft;
 		char name[55];
@@ -47,8 +34,8 @@ class cpuidle_plugin
 	}
 
 public:
-
-
+//	Creates metric property
+//	@param cpu 	processor id of the system for which C-state events shall be recorded in sysfs
 	std::vector<scorep::plugin::metric_property> 
 	get_metric_properties(const std::string& cpu)
 	{
@@ -62,6 +49,8 @@ public:
 			     .value_uint() };
 	}
 	
+//	Adds new metric identified by metric_name to the plugin
+//	@param metric_name string with the pattern "hostname/cpu<id>/cstate"
 	int32_t 
 	add_metric(const std::string& metric_name)
 	{
@@ -76,15 +65,6 @@ public:
 			scorep::plugin::log::logging::warn() <<
 			"Could not identify CPU for data collection.";
 		}
-		if (!is_pinned())
-		{
-			scorep::plugin::log::logging::warn() <<
-			"Thread is not pinned to one specific CPU. You're swimming in new waters.";
-
-			cpu = 0;
-		}
-
-
 		return static_cast<int>(cpu);
 	}
 	
@@ -107,14 +87,15 @@ public:
 	        end = scorep::chrono::measurement_clock::now();
 	}
 
+//	Collects measurement records from cpuidle sysfs entries of cpu and creates C-state transition timeline
+//	@param cpu 	processor id of the system
+//	@param c 	cursor
 	template <typename C>
 	void get_all_values(int32_t cpu, C& c)
 	{
 		scorep::plugin::log::logging::debug() << "Get values called on CPU #" << cpu;
-
 		//init cstate always 0
 		c.write(begin, (std::uint64_t) 0);
-		
 	       	std::stringstream path;
 		path << "/sys/devices/system/cpu/cpu" << std::to_string(cpu) << "/cpuidle/measure/result";
 		std::ifstream infile(path.str());
@@ -146,11 +127,7 @@ public:
 			    		c.write((scorep::chrono::ticks(start) + scorep::chrono::ticks(dur)), (std::uint64_t) 0);
 	            		}
 			}
-		
-		}
-	       	
-		
-	       
+		}       
 	}
 
 private:
@@ -158,7 +135,4 @@ private:
     std::vector<unsigned int> cpus_;
 	
 };
-
-
-
 SCOREP_METRIC_PLUGIN_CLASS(cpuidle_plugin, "cpuidle")
